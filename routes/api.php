@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('ApiDoc')->group(function () {
     //Prefijo ApiDoc, todo lo que este dentro de este grupo se accedera escribiendo ApiDoc en el navegador, es decir /api/ApiDoc/*
-    Route::group(['middleware' => ['jwt.verify']], function() {
+    //Route::group(['middleware' => ['jwt.verify']], function() {
         //Todo lo que este dentro de este grupo requiere verificación de usuario.
         Route::post('ListFile',           [FilesController::class,'ListFile']);
         Route::post('SaveFile',           [FilesController::class,'SaveFile']);
@@ -28,7 +28,7 @@ Route::prefix('ApiDoc')->group(function () {
         Route::post('DeleteFileByRoute',  [FilesController::class,'DeleteFileByRoute']);
         Route::post('GetByRoute',         [FilesController::class,'GetByRoute']);
         
-    });
+    //});
 });
 
 

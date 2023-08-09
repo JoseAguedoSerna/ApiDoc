@@ -4,10 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use Carbon\Carbon;
-use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use stdClass;
+use League\Flysystem\Ftp\FtpAdapter;
+use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+
+
 
 class FilesController extends Controller
 {
@@ -18,99 +22,65 @@ class FilesController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function SaveFile(Request $request) {
-        $SUCCESS = true;
-        $NUMCODE = 0;
-        $STRMESSAGE = 'Exito';
-        $response = "";
-
+    public function saveFile(Request $request)
+    {
         try {
-         $ruta =   $request->ROUTE;
+            $messages = [
+                'required' => 'El campo :attribute es requerido.',
+                'file' => 'El campo :attribute debe ser un archivo.',
+            ];
 
-         if (strtoupper($request->ADDROUTE) === 'TRUE'){ 
-            $existe = Storage::exists($ruta);
-            if(!$existe){
-               Storage::makeDirectory($ruta);
+            // Valida los datos del request con los mensajes personalizados
+            $validator = Validator::make($request->all(), [
+                'ROUTE' => 'required',
+                'FILE' => 'required|file',
+            ], $messages);
+
+            if ($validator->fails()) {
+                // Obtiene los mensajes de error
+                $errors = $validator->errors();
+
+                // Puedes retornar los mensajes de error en la respuesta JSON
+                return response()->json([
+                    'NUMCODE' => 1,
+                    'STRMESSAGE' => 'Error en la validación',
+                    'ERRORS' => $errors->all(),
+                    'SUCCESS' => false,
+                ], 422); // Código de estado HTTP 422 Unprocessable Entity
+
+                // También puedes lanzar una excepción para que Laravel maneje automáticamente los errores
+                // throw new \Illuminate\Validation\ValidationException($validator);
             }
-          
-          }
 
-          $existe = Storage::exists($ruta);
+            $ruta = $request->ROUTE;
+            $file = $request->file('FILE');
+            //$prexi = Carbon::now()->format('YmdHis');
+            $nombre = $file->getClientOriginalName();
+            $filePath = $ruta . $nombre;
 
-         $obj = new stdClass();
-        if ($existe){
+            $disk = Storage::disk('ftp');
+            $disk->put($filePath, file_get_contents($file));
 
-            $fileContents = request()->file('FILE');
+            $obj = new stdClass();
+            $obj->RUTA = $disk->url($filePath);
+            $obj->NOMBREIDENTIFICADOR = $nombre;
+            $obj->NOMBREARCHIVO = $file->getClientOriginalName();
 
-            if($fileContents != null){
-                $prexi = Carbon::now();
-                $nombre =  $prexi.$fileContents->getClientOriginalName();
-
-                $path = $fileContents->storeAs($ruta, $nombre);
-                $obj->RUTA = $path ; //Storage::disk('ftp')->path($ruta.$nombre);
-                $obj->NOMBREIDENTIFICADOR = $nombre;
-                $obj->NOMBREARCHIVO = $fileContents->getClientOriginalName();
-              //  var_dump($obj);
-            }
-
-            $response  = $obj;
-        }else{
-            $response = "No Existe la Ruta Indicada";
-            throw new Exception( $response);
+            return response()->json([
+                'NUMCODE' => 0,
+                'STRMESSAGE' => 'Éxito',
+                'RESPONSE' => $obj,
+                'SUCCESS' => true,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'NUMCODE' => 1,
+                'STRMESSAGE' => $e->getMessage(),
+                'SUCCESS' => false,
+            ]);
         }
-
-
-
-    } catch (\Exception $e) {
-        $NUMCODE = 1;
-        $STRMESSAGE = $e->getMessage();
-        $SUCCESS = false;
     }
 
-    return response()->json(
-        [
-            'NUMCODE' => $NUMCODE,
-            'STRMESSAGE' => $STRMESSAGE,
-            'RESPONSE' => $response,
-            'SUCCESS' => $SUCCESS
-        ]
-    );
-    }
-
-
-
-   /**
-     * @OA\Post(
-     *     path="/ListFile",
-     *     tags={"FilesController"},
-     *     description="Operaciones",
-     *      @OA\Parameter(
-     *         description="Parámetro que indica la ruta donde se almacenara el archivo",
-     *         in="path",
-     *         name="ROUTE",
-     *         required=true,
-     *         @OA\Schema(type="string"),
-     *         @OA\Examples(example="string", value="/", summary="Introduce la Ruta para almacenar el archivo")
-     *     ),
-     *       @OA\Parameter(
-     *         description="Parámetro que indica el nombre del archivo",
-     *         in="path",
-     *         name="Nombre",
-     *         required=false,
-     *         @OA\Schema(type="string"),
-     *         @OA\Examples(example="string", value="foto.png", summary="Introduce el nombre del archivo")
-     *     ),
-     *        @OA\Parameter(
-     *         description="Parámetro que indica la aplicacion de donde se manda a llamar",
-     *         in="path",
-     *         name="APP",
-     *         required=false,
-     *         @OA\Schema(type="string"),
-     *         @OA\Examples(example="string", value="PDRMYE", summary="Introduce el identificador de la APP")
-     *     ),
-     *     @OA\Response(response="200", description="Display a listing of projects.")
-     * )
-     */
     public function ListFile(Request $request){
         $SUCCESS = true;
         $NUMCODE = 0;
@@ -128,7 +98,6 @@ class FilesController extends Controller
         }
        }else{
         $response = "No Existe la Ruta Indicada";
-        throw new Exception( $response);
       }
 
 
@@ -153,6 +122,37 @@ class FilesController extends Controller
 
 
     }
+
+    public function listAll(Request $request) {
+        $SUCCESS = true;
+        $NUMCODE = 0;
+        $STRMESSAGE = 'Success';
+        $response = [];
+
+        try {
+            $route = $request->route;
+            $path = public_path($route);
+
+            if (is_dir($path)) {
+                $files = scandir($path);
+                $response = array_diff($files, array('.', '..'));
+            } else {
+                $response = 'The specified route does not exist';
+            }
+        } catch (\Exception $e) {
+            $NUMCODE = 1;
+            $STRMESSAGE = $e->getMessage();
+            $SUCCESS = false;
+        }
+
+        return response()->json([
+            'NUMCODE' => $NUMCODE,
+            'STRMESSAGE' => $STRMESSAGE,
+            'RESPONSE' => $response,
+            'SUCCESS' => $SUCCESS
+        ]);
+    }
+
 
 
 
@@ -192,104 +192,46 @@ class FilesController extends Controller
 
     public function GetByName(Request $request)
     {
-        $SUCCESS = true;
-        $NUMCODE = 0;
-        $STRMESSAGE = 'Exito';
-        $response = "";
-
         try {
-        $nombre =   $request->NOMBRE;
-        $ruta   =   $request->ROUTE;
-        if($nombre != null){
-            $obj = new stdClass();
-            $atachment = Storage::disk('ftp')->get($ruta.$nombre);
-            $obj->NOMBRE=$nombre;
-            $obj->TIPO = Storage::mimeType($ruta.$nombre);
-            $obj->SIZE = Storage::size($ruta.$nombre);
-            $obj->FILE = base64_encode($atachment);
+            $ruta = $request->input('ruta');
+            $nombre = $request->input('nombre');
+
+            if (!$ruta || !$nombre) {
+                return response()->json([
+                    'NUMCODE' => 1,
+                    'STRMESSAGE' => 'Datos de entrada incompletos',
+                    'SUCCESS' => false,
+                ]);
+            }
+
+            $disk = Storage::disk('ftp');
+            $filePath = $ruta . $nombre;
+
+            // Verificar si el archivo existe en el servidor FTP
+            if (!$disk->exists($filePath)) {
+                return response()->json([
+                    'NUMCODE' => 1,
+                    'STRMESSAGE' => 'El archivo no existe en el servidor FTP',
+                    'SUCCESS' => false,
+                ]);
+            }
+
+            // Devolver el archivo para su descarga
+            return Storage::disk('ftp')->download($filePath, null, [
+                'Content-Type' => 'application/pdf', // Tipo MIME para un archivo PDF
+                'Content-Disposition' => 'inline', // Visualizar el PDF en el navegador
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'NUMCODE' => 1,
+                'STRMESSAGE' => $e->getMessage(),
+                'SUCCESS' => false,
+            ]);
         }
-
-        $response  = $obj;
-
-    } catch (\Exception $e) {
-        $NUMCODE = 1;
-        $STRMESSAGE = $e->getMessage();
-        $SUCCESS = false;
     }
 
-   return response()->json(
-        [
-            'NUMCODE' => $NUMCODE,
-            'STRMESSAGE' => $STRMESSAGE,
-            'RESPONSE' => $response,
-            'SUCCESS' => $SUCCESS
-        ]
-    );
-    }
-
-    public function GetByRoute(Request $request)
-    {
-        $SUCCESS = true;
-        $NUMCODE = 0;
-        $STRMESSAGE = 'Exito';
-        $response = "";
-
-        try {
-    
-        $ruta   =   $request->ROUTE;
-       
-        $obj = new stdClass();
-        $atachment = Storage::disk('ftp')->get($ruta);
-        $obj->TIPO = Storage::mimeType($ruta);
-        $obj->SIZE = Storage::size($ruta);
-        $obj->FILE = base64_encode($atachment);
-        $response  = $obj;
-
-    } catch (\Exception $e) {
-        $NUMCODE = 1;
-        $STRMESSAGE = $e->getMessage();
-        $SUCCESS = false;
-    }
-
-   return response()->json(
-        [
-            'NUMCODE' => $NUMCODE,
-            'STRMESSAGE' => $STRMESSAGE,
-            'RESPONSE' => $response,
-            'SUCCESS' => $SUCCESS
-        ]
-    );
-    }
-
-    public function DeleteFileByRoute(Request $request)
-    {
-        $SUCCESS = true;
-        $NUMCODE = 0;
-        $STRMESSAGE = 'Exito';
-        $response = "Archivo Eliminado";
-
-        try {
-        $ruta   =   $request->ROUTE;
-        if($ruta != null){
-            Storage::delete($ruta);
-        }
 
 
-    } catch (\Exception $e) {
-        $response ="Error al Eliminar Archivo" ;
-        $NUMCODE = 1;
-        $STRMESSAGE = $e->getMessage();
-        $SUCCESS = false;
-    }
-
-   return response()->json(
-        [
-            'NUMCODE' => $NUMCODE,
-            'STRMESSAGE' => $STRMESSAGE,
-            'RESPONSE' => $response,
-            'SUCCESS' => $SUCCESS
-        ]
-    );
-    }
 
 }
