@@ -58,7 +58,7 @@ return [
 
         'ftp' => [
             'driver' => 'ftp',
-            'host' => '10.210.0.30',
+            'host' => '10.210.26.28',
             'username' => 'admin',
             'password' => 'password',
 
@@ -67,6 +67,16 @@ return [
             // 'root' => '',
             'passive' => true,
             'ssl' => true,
+            'timeout' => 5000,
+        ],
+
+        'sftp' => [
+            'driver' => 'sftp',
+            'host' => '10.210.26.28',
+            'username' => 'sshd',
+            'password' => 'infinite123',
+            'port' => 22, // El puerto predeterminado para SFTP es 22
+            'root' => '/mnt/HD/HD_a2/', // Ruta raíz en el servidor remoto
             'timeout' => 5000,
         ],
 

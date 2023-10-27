@@ -58,7 +58,7 @@ class FilesController extends Controller
             $nombre = $file->getClientOriginalName();
             $filePath = $ruta . $nombre;
 
-            $disk = Storage::disk('ftp');
+            $disk = Storage::disk('sftp');
             $disk->put($filePath, file_get_contents($file));
 
             $obj = new stdClass();
@@ -204,7 +204,7 @@ class FilesController extends Controller
                 ]);
             }
 
-            $disk = Storage::disk('ftp');
+            $disk = Storage::disk('sftp');
             $filePath = $ruta . $nombre;
 
             // Verificar si el archivo existe en el servidor FTP
@@ -217,7 +217,7 @@ class FilesController extends Controller
             }
 
             // Devolver el archivo para su descarga
-            return Storage::disk('ftp')->download($filePath, null, [
+            return Storage::disk('sftp')->download($filePath, null, [
                 'Content-Type' => 'application/pdf', // Tipo MIME para un archivo PDF
                 'Content-Disposition' => 'inline', // Visualizar el PDF en el navegador
             ]);
