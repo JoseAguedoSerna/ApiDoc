@@ -204,7 +204,7 @@ class FilesController extends Controller
                 ]);
             }
 
-            $disk = Storage::disk('sftp');
+            $disk = Storage::disk('ftp');
             $filePath = $ruta . $nombre;
 
             // Verificar si el archivo existe en el servidor FTP
@@ -216,10 +216,13 @@ class FilesController extends Controller
                 ]);
             }
 
-            // Devolver el archivo para su descarga
-            return Storage::disk('sftp')->download($filePath, null, [
-                'Content-Type' => 'application/pdf', // Tipo MIME para un archivo PDF
-                'Content-Disposition' => 'inline', // Visualizar el PDF en el navegador
+            // Determinar el tipo MIME del archivo basado en la extensión
+            $contentType = $this->getMimeType($nombre);
+
+            // Devolver el archivo para su descarga o visualización
+            return $disk->download($filePath, $nombre, [
+                'Content-Type' => $contentType,
+                'Content-Disposition' => ($contentType === 'application/pdf') ? 'inline' : 'attachment',
             ]);
 
         } catch (\Exception $e) {
@@ -231,7 +234,23 @@ class FilesController extends Controller
         }
     }
 
+    private function getMimeType($filename)
+    {
+        $default = 'application/octet-stream'; // Tipo MIME predeterminado
+        $extension = strtolower(Str::afterLast($filename, '.'));
 
+        $mimes = [
+            'pdf' => 'application/pdf',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            // Otros tipos de archivo que necesites manejar
+        ];
+
+        return $mimes[$extension] ?? $default;
+    }
+
+//Hola
 
 
 }
