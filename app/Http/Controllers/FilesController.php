@@ -10,6 +10,8 @@ use stdClass;
 use League\Flysystem\Ftp\FtpAdapter;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Illuminate\Support\Str;
+
 
 
 
@@ -216,10 +218,14 @@ class FilesController extends Controller
                 ]);
             }
 
-            // Devolver el archivo para su descarga
-            return Storage::disk('sftp')->download($filePath, null, [
-                'Content-Type' => 'application/pdf', // Tipo MIME para un archivo PDF
-                'Content-Disposition' => 'inline', // Visualizar el PDF en el navegador
+            // Determinar el tipo MIME basado en la extensión del archivo
+            $fileExtension = strtolower(Str::afterLast($nombre, '.'));
+            $mimeType = $this->getMimeType($fileExtension);
+
+            // Devolver el archivo para su descarga o visualización
+            return $disk->download($filePath, $nombre, [
+                'Content-Type' => $mimeType,
+                'Content-Disposition' => 'attachment; filename="'.$nombre.'"'
             ]);
 
         } catch (\Exception $e) {
@@ -229,6 +235,19 @@ class FilesController extends Controller
                 'SUCCESS' => false,
             ]);
         }
+    }
+
+    private function getMimeType($extension)
+    {
+        $mimeTypes = [
+            'pdf' => 'application/pdf',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            // Puedes agregar más mapeos de extensiones a tipos MIME aquí
+        ];
+
+        return $mimeTypes[$extension] ?? 'application/octet-stream'; // Tipo MIME genérico para datos binarios
     }
 
 
