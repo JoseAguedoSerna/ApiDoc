@@ -224,8 +224,9 @@ class FilesController extends Controller
 
             // Devolver el archivo para su descarga o visualización
             return $disk->download($filePath, $nombre, [
+                'Content-Disposition' => 'inline',
                 'Content-Type' => $mimeType,
-                'Content-Disposition' => 'attachment; filename="'.$nombre.'"'
+                //'Content-Disposition' => 'attachment; filename="'.$nombre.'"'
             ]);
 
         } catch (\Exception $e) {
